@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WS Chat (Redis + TS)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 760px;
+        margin: 2rem auto;
+      }
+      #messages {
+        border: 1px solid #ddd;
+        padding: 1rem;
+        height: 50vh;
+        overflow: auto;
+      }
+      .sys {
+        color: #666;
+        font-style: italic;
+      }
+      .meta {
+        color: #888;
+        font-size: 0.85rem;
+      }
+      form {
+        display: grid;
+        grid-template-columns: 1fr 1fr 4fr auto;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      input,
+      button {
+        padding: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Redis Chat (TypeScript + WebSocket)</h1>
+    <div id="messages"></div>
+    <form id="form">
+      <input id="username" placeholder="username" value="guest" />
+      <input id="room" placeholder="room" value="lobby" />
+      <input id="text" placeholder="message..." />
+      <button>Send</button>
+    </form>
+    <script>
+      const ws = new WebSocket(`ws://${location.hostname}:3000`);
+      const $messages = document.getElementById("messages");
+      const $form = document.getElementById("form");
+      const $username = document.getElementById("username");
+      const $room = document.getElementById("room");
+      const $text = document.getElementById("text");
+
+      function line(html) {
+        const p = document.createElement("p");
+        p.innerHTML = html;
+        $messages.appendChild(p);
+        $messages.scrollTop = $messages.scrollHeight;
+      }
+
+      ws.addEventListener("message", (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === "system")
+          line(`<span class="sys">[system]</span> ${data.text}`);
+        if (data.type === "history") {
+          data.messages.forEach((m) => {
+            line(
+              `<span class="meta">[${new Date(
+                m.ts
+              ).toLocaleTimeString()}]</span> <b>${m.username}</b> (${
+                m.room
+              }): ${m.text}`
+            );
+          });
+        }
+        if (data.type === "broadcast") {
+          const m = data.message;
+          line(
+            `<span class="meta">[${new Date(
+              m.ts
+            ).toLocaleTimeString()}]</span> <b>${m.username}</b> (${m.room}): ${
+              m.text
+            }`
+          );
+        }
+      });
+
+      $form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!$text.value.trim()) return;
+        ws.send(
+          JSON.stringify({
+            type: "message",
+            room: $room.value || "lobby",
+            text: $text.value,
+            username: $username.value || "guest",
+          })
+        );
+        $text.value = "";
+      });
+    </script>
+  </body>
+</html>

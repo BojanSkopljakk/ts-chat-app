@@ -1,0 +1,37 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+
+  server:
+    build: ./server
+    environment:
+      # Use service name "redis" as host inside the Docker network
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - DEFAULT_ROOM=lobby
+      - RATE_LIMIT_PER_MIN=20
+      - HISTORY_SIZE=50
+      - HISTORY_TTL_SECONDS=604800
+    depends_on:
+      - redis
+    ports:
+      - "3000:3000"
+
+  client:
+    image: nginx:alpine
+    volumes:
+      - ./client:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+volumes:
+  redis-data:
